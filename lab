@@ -91,6 +91,84 @@ SELECT * FROM Order_Items;
 
 
 
+4.
+4. MongoDB event management
+
+use eventManagement
+
+db.events.insertMany([
+  {
+    "eventId": 1,
+    "eventName": "Tech Conference 2025",
+    "eventDate": "2025-06-15",
+    "eventLocation": "New York"
+  },
+  {
+    "eventId": 2,
+    "eventName": "AI Workshop",
+    "eventDate": "2025-07-10",
+    "eventLocation": "San Francisco"
+  }
+])
+
+db.attendees.insertMany([
+  {
+    "attendeeId": 101,
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "123-456-7890"
+  },
+  {
+    "attendeeId": 102,
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "phone": "987-654-3210"
+  }
+])
+
+db.registrations.insertMany([
+  {
+    "attendeeId": 101,
+    "eventId": 1
+  },
+  {
+    "attendeeId": 102,
+    "eventId": 2
+  }
+])
+
+db.events.find()
+
+db.registrations.aggregate([
+  {
+    $match: { "eventId": 1 }
+  },
+  {
+    $lookup: {
+      from: "attendees",
+      localField: "attendeeId",
+      foreignField: "attendeeId",
+      as: "attendeeDetails"
+    }
+  }
+])
+
+db.registrations.aggregate([
+  {
+    $match: { "attendeeId": 101 }
+  },
+  {
+    $lookup: {
+      from: "events",
+      localField: "eventId",
+      foreignField: "eventId",
+      as: "eventDetails"
+    }
+  }
+])
+
+
+
 
 5
 use ecommerce;
