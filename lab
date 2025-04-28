@@ -1,0 +1,316 @@
+1
+CREATE DATABASE EMPLOYEE_DATA;
+USE EMPLOYEE_DATA;
+
+CREATE TABLE employee (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(100) NOT NULL,
+    salary DECIMAL(10, 2) NOT NULL,
+    position VARCHAR(50) NOT NULL
+);
+
+INSERT INTO employee (name, email, password, salary, position) VALUES
+('Alice Johnson', 'alice@example.com', 'password123', 60000.00, 'Software Engineer'),
+('Bob Smith', 'bob@example.com', 'bobpassword', 75000.00, 'Project Manager'),
+('Charlie Brown', 'charlie@example.com', 'charliepass', 50000.00, 'QA Tester');
+
+SELECT * FROM employee;
+SELECT * FROM employee WHERE email = 'alice@example.com';
+
+UPDATE employee
+SET salary = 80000.00, position = 'Senior Project Manager'
+WHERE email = 'bob@example.com';
+
+DELETE FROM employee
+WHERE email = 'charlie@example.com';
+
+
+
+
+2.
+CREATE DATABASE shopping_v2;
+USE shopping_v2;
+
+CREATE TABLE Customer (
+    customer_id INT PRIMARY KEY,
+    name VARCHAR(50),
+    email VARCHAR(100) UNIQUE
+);
+
+CREATE TABLE Product (
+    product_id INT PRIMARY KEY,
+    name VARCHAR(50),
+    price DECIMAL(10, 2) CHECK (price > 0),
+    stock INT CHECK (stock >= 0)
+);
+
+CREATE TABLE Order_Items (
+    order_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT,
+    product_id INT,
+    quantity INT CHECK (quantity > 0),
+    FOREIGN KEY (customer_id) REFERENCES Customer(customer_id),
+    FOREIGN KEY (product_id) REFERENCES Product(product_id)
+);
+
+INSERT INTO Customer (customer_id, first_name, email) VALUES
+(1, 'John', 'john@example.com'),
+(2, 'Jane', 'jane@example.com'),
+(3, 'Alice', 'alice@example.com');
+
+INSERT INTO Product (product_id, name, price, stock) VALUES
+(1, 'Laptop', 900.00, 10),
+(2, 'Phone', 500.00, 20),
+(3, 'Headphones', 30.00, 50);
+
+
+DELIMITER //
+
+CREATE TRIGGER update_stock
+AFTER INSERT ON Order_Items
+FOR EACH ROW
+BEGIN
+    UPDATE Product
+    SET stock = stock - NEW.quantity
+    WHERE product_id = NEW.product_id;
+END;
+//
+
+DELIMITER ;
+
+INSERT INTO Order_Items (customer_id, product_id, quantity) VALUES
+(1, 1, 1), -- John buys 1 Laptop
+(2, 2, 1), -- Jane buys 1 Phone
+(3, 3, 1); -- Alice buys 1 Headphones
+
+SELECT * FROM Customer;
+SELECT * FROM Product;
+SELECT * FROM Order_Items;
+
+
+
+
+5
+use ecommerce;
+
+// Insert Users
+const userId1 = ObjectId();
+const userId2 = ObjectId();
+
+db.users.insertMany([
+  {
+    _id: userId1,
+    name: "John Doe",
+    email: "john.doe@example.com",
+    password_hash: "hashed_password",
+    address: "123 Street, NY"
+  },
+  {
+    _id: userId2,
+    name: "Jane Smith",
+    email: "jane.smith@example.com",
+    password_hash: "hashed_password",
+    address: "456 Avenue, LA"
+  }
+]);
+
+// Insert Products
+const productId1 = ObjectId();
+const productId2 = ObjectId();
+
+db.products.insertMany([
+  {
+    _id: productId1,
+    name: "Smartphone",
+    category: "Electronics",
+    price: 599.99,
+    stock: 50
+  },
+  {
+    _id: productId2,
+    name: "Laptop",
+    category: "Electronics",
+    price: 999.99,
+    stock: 20
+  }
+]);
+
+// Insert Order
+const orderId1 = ObjectId();
+
+db.orders.insertOne({
+  _id: orderId1,
+  user_id: userId1,
+  total_amount: 599.99,
+  order_status: "Processing",
+  created_at: new Date(),
+  items: [
+    { product_id: productId1, quantity: 1, price: 599.99 }
+  ]
+});
+
+// Insert Payment
+const paymentId1 = ObjectId();
+
+db.payments.insertOne({
+  _id: paymentId1,
+  order_id: orderId1,
+  amount: 599.99,
+  status: "Completed",
+  payment_method: "Credit Card",
+  transaction_timestamp: new Date()
+});
+
+// Show Users
+db.users.find().pretty();
+
+// Find Orders by User
+db.orders.find({ user_id: userId1 }).pretty();
+
+// Update Order Status
+db.orders.updateOne(
+  { _id: orderId1 },
+  { $set: { order_status: "Shipped" } }
+);
+
+// Update Product Stock
+db.products.updateOne(
+  { _id: productId1 },
+  { $inc: { stock: -1 } }
+);
+
+// Delete Payment
+db.payments.deleteOne({ _id: paymentId1 });
+
+// Enable Sharding (if using sharded cluster)
+sh.enableSharding("ecommerce");
+
+db.users.createIndex({ email: 1 });
+sh.shardCollection("ecommerce.users", { email: 1 });
+
+db.orders.createIndex({ user_id: 1 });
+sh.shardCollection("ecommerce.orders", { user_id: 1 });
+
+// Simple Change Stream (example)
+const changeStream = db.orders.watch();
+
+changeStream.on("change", (change) => {
+  if (change.operationType === "insert") {
+    change.fullDocument.items.forEach((item) => {
+      db.products.updateOne(
+        { _id: item.product_id },
+        { $inc: { stock: -item.quantity } }
+      );
+    });
+  }
+});
+
+
+6
+from flask import Flask, jsonify
+import redis
+import time
+
+app = Flask(__name__)
+
+# Redis configuration
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+
+def get_blog_post_from_db(post_id):
+    time.sleep(2)  # Simulate database delay
+    return {"post_id": post_id, "title": f"Post {post_id}", "content": "Sample blog content."}
+
+@app.route('/post/<post_id>')
+def get_post(post_id):
+    cached_post = redis_client.get(post_id)
+    if cached_post:
+        return jsonify({"source": "cache", "data": eval(cached_post)})
+
+    post = get_blog_post_from_db(post_id)
+    redis_client.setex(post_id, 10, str(post))
+    return jsonify({"source": "database", "data": post})
+
+@app.route('/clear-cache/<post_id>')
+def clear_cache(post_id):
+    redis_client.delete(post_id)
+    return jsonify({"message": f"Cache for post {post_id} cleared."})
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+7.
+-- Create the database
+CREATE DATABASE dbms7;
+USE dbms7;
+
+-- Create Users table
+CREATE TABLE Users (
+    user_id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    password_hash TEXT NOT NULL,
+    phone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create Accounts table
+CREATE TABLE Accounts (
+    account_id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES Users(user_id),
+    balance NUMERIC(15,2) DEFAULT 0.00,
+    status VARCHAR(20) DEFAULT 'Active'
+);
+
+-- Create Transactions table
+CREATE TABLE Transactions (
+    transaction_id SERIAL PRIMARY KEY,
+    from_account INT REFERENCES Accounts(account_id),
+    to_account INT REFERENCES Accounts(account_id),
+    amount NUMERIC(15,2) CHECK (amount > 0),
+    timestamp TIMESTAMP DEFAULT NOW(),
+    status VARCHAR(20) DEFAULT 'Pending'
+);
+
+-- Insert sample data into Users
+INSERT INTO Users (name, email, password_hash, phone) VALUES
+('Alice Johnson', 'alice@example.com', 'hashed_password1', '1234567890'),
+('Bob Smith', 'bob@example.com', 'hashed_password2', '0987654321');
+
+-- Insert sample data into Accounts
+INSERT INTO Accounts (user_id, balance, status) VALUES
+(1, 5000.00, 'Active'),
+(2, 3000.00, 'Active');
+
+-- Insert sample data into Transactions
+INSERT INTO Transactions (from_account, to_account, amount, status) VALUES
+(1, 2, 500.00, 'Completed'),
+(2, 1, 200.00, 'Completed');
+
+-- Create trigger to update balances after transactions
+DELIMITER //
+
+CREATE TRIGGER update_balance
+AFTER INSERT ON Transactions
+FOR EACH ROW
+BEGIN
+    UPDATE Accounts
+    SET balance = balance - NEW.amount
+    WHERE account_id = NEW.from_account;
+
+    UPDATE Accounts
+    SET balance = balance + NEW.amount
+    WHERE account_id = NEW.to_account;
+END;
+//
+
+DELIMITER ;
+
+-- Select all data
+SELECT * FROM Users;
+SELECT * FROM Accounts;
+SELECT * FROM Transactions;
+
